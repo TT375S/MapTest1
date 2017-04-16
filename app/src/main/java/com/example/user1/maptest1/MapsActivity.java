@@ -16,6 +16,7 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
@@ -78,7 +79,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             @Override
                             public void run() {
                                 // マルチスレッドにしたい処理 ここから
-                                getData(sb0.getProgress()*100, lat, lon);
+                                getData(sb0.getProgress()*200, lat, lon);
 
                                 // マルチスレッドにしたい処理 ここまで
                             }
@@ -122,7 +123,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 //            urlStrBuilder.append("&sensor=true&radius=" + radius+"&types=convenience_store&key=AIzaSyBXUpKxiq_jDSgsPysP-2LePVEmneRjuNo");
             StringBuilder urlStrBuilder = new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json");
             urlStrBuilder.append("?location=" + latitude + "," + longtitude);
-            urlStrBuilder.append("&sensor=true&language=ja&keyword=寺or神社&radius=" + radius+"&key=AIzaSyBXUpKxiq_jDSgsPysP-2LePVEmneRjuNo");
+            //クエリストリングでは空白を+か%20にするが、ちゃんと検索できてるのかよくわからない...。「寺 or 神社」で検索
+            urlStrBuilder.append("&sensor=true&language=ja&keyword=寺%20神社&radius=" + radius+"&key=AIzaSyBXUpKxiq_jDSgsPysP-2LePVEmneRjuNo");
 
             URL u = new URL(urlStrBuilder.toString());
 
@@ -178,16 +180,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         for (int i = 0; i < datas.length(); i++) {
                             JSONObject data = datas.getJSONObject(i);
                             JSONObject geometry = datas.getJSONObject(i).getJSONObject("geometry").getJSONObject("location");
+
                             // 名前を取得
                             String name = data.getString("name");
-                            // 年齢を取得
+                            // 近所(おおまかな地名？)を取得
                             String vic = data.getString("vicinity");
 
                             double lat = Double.parseDouble(geometry.getString("lat"));
                             double lng = Double.parseDouble(geometry.getString("lng"));
 
                             LatLng latLng = new LatLng(lat, lng);
-                            mMap.addMarker(new MarkerOptions().position(latLng).title(name));
+
+                            if(data.isNull("photos")){
+                                mMap.addMarker(new MarkerOptions().position(latLng).title(name));
+                            }else {
+                                //プレイスフォトがある場合は青色のマーカーを表示する
+                                Log.i("JSON", "It has photos: " + name +"("+ lat + "," + lng+")");
+                                mMap.addMarker(new MarkerOptions().position(latLng).title(name).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+                            }
                             Log.i("DEBUG", " Marker creation: "+name + "  ++" + vic +  "(" +lat + "  "+lng+")");
                         }
                     }catch (Exception e){
@@ -319,7 +329,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     public void updateCircle(Integer size){
-        circle.setRadius((double) size * 100.0);
+        circle.setRadius((double) size * 200.0);
         circle.setCenter( new LatLng(mMap.getCameraPosition().target.latitude, mMap.getCameraPosition().target.longitude) );
     }
 }
