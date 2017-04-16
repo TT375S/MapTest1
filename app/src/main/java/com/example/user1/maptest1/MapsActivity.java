@@ -70,6 +70,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     public void onStopTrackingTouch(SeekBar seekBar) {
                         // ツマミを離したときに呼ばれる
+                        //マップの中心座標を、プレイス検索するメソッドに渡すため
                         final double lat = mMap.getCameraPosition().target.latitude;
                         final double lon = mMap.getCameraPosition().target.longitude;
                         //ワーカースレッド上で動かす
@@ -116,9 +117,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 //            urlStrBuilder.append("?location=" + lat + "," + lng);
 //            urlStrBuilder.append("&sensor=true&rankby=distance&types=convenience_store&key=AIzaSyBXUpKxiq_jDSgsPysP-2LePVEmneRjuNo");
 
-            StringBuilder urlStrBuilder = new StringBuilder("https://maps.googleapis.com/maps/api/place/search/json");
+//            StringBuilder urlStrBuilder = new StringBuilder("https://maps.googleapis.com/maps/api/place/search/json");
+//            urlStrBuilder.append("?location=" + latitude + "," + longtitude);
+//            urlStrBuilder.append("&sensor=true&radius=" + radius+"&types=convenience_store&key=AIzaSyBXUpKxiq_jDSgsPysP-2LePVEmneRjuNo");
+            StringBuilder urlStrBuilder = new StringBuilder("https://maps.googleapis.com/maps/api/place/nearbysearch/json");
             urlStrBuilder.append("?location=" + latitude + "," + longtitude);
-            urlStrBuilder.append("&sensor=true&radius=" + radius+"&types=convenience_store&key=AIzaSyBXUpKxiq_jDSgsPysP-2LePVEmneRjuNo");
+            urlStrBuilder.append("&sensor=true&language=ja&keyword=寺or神社&radius=" + radius+"&key=AIzaSyBXUpKxiq_jDSgsPysP-2LePVEmneRjuNo");
 
             URL u = new URL(urlStrBuilder.toString());
 
@@ -134,9 +138,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             byte[] buffer = new byte[1024];
             String jsonResult="";
             while ((bytesRead = is.read(buffer)) != -1) {
-                jsonResult += new String(buffer, 0, bytesRead);
+                String buf = new String(buffer, 0, bytesRead);
+                jsonResult += buf;
+                Log.i("DEBUG", buf);
             }
-            Log.i("DEBUG", jsonResult);
+            //なぜかJSONObjectのtoString(たぶん...)だと全部表示されない
+            //Log.i("DEBUG", jsonResult);
 
 //            String path = Environment.getExternalStorageDirectory() + "/tekitou/";
 //            String fileName = "tekitou.json";
