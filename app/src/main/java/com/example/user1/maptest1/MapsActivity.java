@@ -1,7 +1,6 @@
 package com.example.user1.maptest1;
 
 import android.app.Activity;
-import android.location.Location;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v4.app.FragmentActivity;
@@ -12,7 +11,6 @@ import android.os.Handler;
 
 //import com.fasterxml.jackson.core.JsonProcessingException;
 //import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -29,76 +27,41 @@ import org.json.JSONObject;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Map;
 
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
     private GoogleMap mMap;
     private Handler handler;
-//    @Override
-//    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-//        super.onCreateView(inflater, container, savedInstanceState);
-//        // 先ほどのレイアウトをここでViewとして作成します
-//        View view = inflater.inflate(R.layout.activity_maps, container, false);
-//        return view;
-//
-//
-//    }
-//
-//    @Override
-//    public void onActivityCreated(Bundle savedInstanceState) {
-//        super.onActivityCreated(savedInstanceState);
-//
-//        SupportMapFragment mapFragment = (SupportMapFragment)getChildFragmentManager().findFragmentById(R.id.map);
-//        mapFragment.getMapAsync(this); //ここでNullPointerExceptionになります。
-//    }
 
-//    // Viewが生成し終わった時に呼ばれるメソッド
-//    @Override
-//    public void onActivityCreated(Bundle savedInstanceState) {
-//        super.onActivityCreated(savedInstanceState);
-////
-////        FragmentManager fm = getChildFragmentManager();
-////        SupportMapFragment fragment = (SupportMapFragment) fm.findFragmentById(R.id.map);
-//        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-//        SupportMapFragment mapFragment = ((SupportMapFragment) getFragmentManager()
-//                .findFragmentById(R.id.map));
-//        mapFragment.getMapAsync(this);
-//
-////        Activity act = (Activity) this;
-////
-////        seekBar = (SeekBar)act.findViewById(R.id.seekBar01);
-//    }
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+        final SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
         handler = new Handler();
 
-
         Activity act = (Activity) this;
 
+        //画面のパーツを取得
         final SeekBar sb0 = (SeekBar)act.findViewById(R.id.seekBar01);
         final TextView tv0 = (TextView)act.findViewById(R.id.TextView00);
         // シークバーの初期値をTextViewに表示
         tv0.setText("設定値:"+sb0.getProgress());
 
+        //シークバーを操作したときの動作をセット
         sb0.setOnSeekBarChangeListener(
                 new SeekBar.OnSeekBarChangeListener() {
                     public void onProgressChanged(SeekBar seekBar,
                                                   int progress, boolean fromUser) {
                         // ツマミをドラッグしたときに呼ばれる
                         tv0.setText("設定値:"+sb0.getProgress());
-                        changeCircleRadius(sb0.getProgress());
+                        updateCircle(sb0.getProgress());
                     }
 
                     public void onStartTrackingTouch(SeekBar seekBar) {
@@ -107,11 +70,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     public void onStopTrackingTouch(SeekBar seekBar) {
                         // ツマミを離したときに呼ばれる
+                        final double lat = mMap.getCameraPosition().target.latitude;
+                        final double lon = mMap.getCameraPosition().target.longitude;
+                        //ワーカースレッド上で動かす
                         new Thread(new Runnable() {
                             @Override
                             public void run() {
                                 // マルチスレッドにしたい処理 ここから
-                                getData(sb0.getProgress()*100);
+                                getData(sb0.getProgress()*100, lat, lon);
 
                                 // マルチスレッドにしたい処理 ここまで
                             }
@@ -132,67 +98,101 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-    public void getData(int radius){
+    public void getData(int radius, double latitude, double longtitude){
         try {
-            Log.i("ARE!", "START WGET");
-            // ワーカースレッドにて
+            // ワーカースレッドにて実行しなければならない(Webアクセスだから)
+            Log.i("DEBUG", "start data retreiving");
 
             // URL生成（現在地を元に）
             //Location loc = LocationServices.FusedLocationApi.getLastLocation(sSelf.mGoogleApiClient);
 //            double lat = loc.getLatitude();
 //            double lng = loc.getLongitude();
+
             LatLng  latLng = new LatLng(35, 139);
             double lat = latLng.latitude;
             double lng = latLng.longitude;
+
 //            StringBuilder urlStrBuilder = new StringBuilder("https://maps.googleapis.com/maps/api/place/search/json");
 //            urlStrBuilder.append("?location=" + lat + "," + lng);
 //            urlStrBuilder.append("&sensor=true&rankby=distance&types=convenience_store&key=AIzaSyBXUpKxiq_jDSgsPysP-2LePVEmneRjuNo");
+
             StringBuilder urlStrBuilder = new StringBuilder("https://maps.googleapis.com/maps/api/place/search/json");
-            urlStrBuilder.append("?location=" + mMap.getCameraPosition().target.latitude + "," + mMap.getCameraPosition().target.longitude);
+            urlStrBuilder.append("?location=" + latitude + "," + longtitude);
             urlStrBuilder.append("&sensor=true&radius=" + radius+"&types=convenience_store&key=AIzaSyBXUpKxiq_jDSgsPysP-2LePVEmneRjuNo");
 
             URL u = new URL(urlStrBuilder.toString());
-            Log.i("ARE!", "PROCESSING...");
+
+            Log.i("DEBUG", "processing...");
             // APIを叩いてJSONをダウンロード
             HttpURLConnection con = (HttpURLConnection) u.openConnection();
             con.setRequestMethod("GET");
             con.connect();
             BufferedInputStream is = new BufferedInputStream(con.getInputStream());
 
-            Log.i("ARE!", "In Proccesing, showing results.");
+            Log.i("DEBUG", "In Proccesing, showing results.");
             int bytesRead = -1;
             byte[] buffer = new byte[1024];
             String jsonResult="";
-//            while ((bytesRead = is.read(buffer)) != -1) {
-//                jsonResult += new String(buffer, 0, bytesRead);
-//            }
-            Log.i("ARE!", jsonResult);
-
-            String path = Environment.getExternalStorageDirectory() + "/tekitou/";
-            String fileName = "tekitou.json";
-            File dir = new File(path);
-            dir.mkdirs();
-            Log.i("ARE!", "CreateFile");
-            File outputFile = new File(dir, fileName);
-            Log.i("ARE!", "OpenForWrite");
-            //FileOutputStream fos = new FileOutputStream(outputFile);
-            FileOutputStream fos  = openFileOutput(fileName, MODE_PRIVATE);
-
-            bytesRead = -1;
-            buffer = new byte[1024];
-
             while ((bytesRead = is.read(buffer)) != -1) {
-                fos.write(buffer, 0, bytesRead);
+                jsonResult += new String(buffer, 0, bytesRead);
             }
-            fos.flush();
-            fos.close();
+            Log.i("DEBUG", jsonResult);
+
+//            String path = Environment.getExternalStorageDirectory() + "/tekitou/";
+//            String fileName = "tekitou.json";
+//            File dir = new File(path);
+//            dir.mkdirs();
+//            Log.i("ARE!", "CreateFile");
+//            File outputFile = new File(dir, fileName);
+//            Log.i("ARE!", "OpenForWrite");
+//            //FileOutputStream fos = new FileOutputStream(outputFile);
+//            FileOutputStream fos  = openFileOutput(fileName, MODE_PRIVATE);
+//
+//            bytesRead = -1;
+//            buffer = new byte[1024];
+//
+//            while ((bytesRead = is.read(buffer)) != -1) {
+//                fos.write(buffer, 0, bytesRead);
+//            }
+//            fos.flush();
+//            fos.close();
             is.close();
-            Log.i("ARE!", "WGET FINISHED");
+            Log.i("ARE!", "Finished data retrieving");
+
+            //JSONをパースする
+            JSONObject jsonObject = new JSONObject(jsonResult);
+            final JSONArray datas = jsonObject.getJSONArray("results");
+            //GUIを操作するなら、ワーカースレッドじゃダメでメインorUIスレッドとやらでやる必要がある
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try{
+                        //一件一件、マップ上にマーカー設置
+                        for (int i = 0; i < datas.length(); i++) {
+                            JSONObject data = datas.getJSONObject(i);
+                            JSONObject geometry = datas.getJSONObject(i).getJSONObject("geometry").getJSONObject("location");
+                            // 名前を取得
+                            String name = data.getString("name");
+                            // 年齢を取得
+                            String vic = data.getString("vicinity");
+
+                            double lat = Double.parseDouble(geometry.getString("lat"));
+                            double lng = Double.parseDouble(geometry.getString("lng"));
+
+                            LatLng latLng = new LatLng(lat, lng);
+                            mMap.addMarker(new MarkerOptions().position(latLng).title(name));
+                            Log.i("DEBUG", " Marker creation: "+name + "  ++" + vic +  "(" +lat + "  "+lng+")");
+                        }
+                    }catch (Exception e){
+                        e.printStackTrace();
+                    }
+                }});
+
         }catch(Exception e){
             e.printStackTrace();
         }
 
-        this.showResults();
+        //this.showResults();
     }
 
     public void showResults(){
@@ -311,7 +311,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         circle = mMap.addCircle(circleOptions);
     }
 
-    public void changeCircleRadius(Integer size){
+    public void updateCircle(Integer size){
         circle.setRadius((double) size * 100.0);
         circle.setCenter( new LatLng(mMap.getCameraPosition().target.latitude, mMap.getCameraPosition().target.longitude) );
     }
